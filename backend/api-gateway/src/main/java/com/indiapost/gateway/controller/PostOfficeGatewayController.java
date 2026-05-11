@@ -3,8 +3,10 @@ package com.indiapost.gateway.controller;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 /**
@@ -12,6 +14,7 @@ import reactor.core.publisher.Mono;
  * to the downstream Post Office microservice.
  * <p>
  * All endpoints are prefixed with {@code /api/postoffice}.
+ * Error responses from downstream are propagated with original status codes.
  * </p>
  */
 @Slf4j
@@ -38,12 +41,21 @@ public class PostOfficeGatewayController {
      * @return JSON response from the Post Office service
      */
     @GetMapping(value = "/pincode/{pincode}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<String> searchByPincode(@PathVariable String pincode) {
+    public Mono<ResponseEntity<String>> searchByPincode(@PathVariable String pincode) {
         log.info("Gateway → PostOffice Service: search by pincode={}", pincode);
         return postOfficeWebClient.get()
                 .uri("/api/v1/postoffice/pincode/{pincode}", pincode)
                 .retrieve()
-                .bodyToMono(String.class);
+                .toEntity(String.class)
+                .map(response -> ResponseEntity
+                        .status(response.getStatusCode())
+                        .body(response.getBody()))
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.warn("PostOffice service returned {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    return Mono.just(ResponseEntity
+                            .status(ex.getStatusCode())
+                            .body(ex.getResponseBodyAsString()));
+                });
     }
 
     /**
@@ -53,7 +65,7 @@ public class PostOfficeGatewayController {
      * @return JSON response from the Post Office service
      */
     @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Mono<String> searchByName(@RequestParam String name) {
+    public Mono<ResponseEntity<String>> searchByName(@RequestParam String name) {
         log.info("Gateway → PostOffice Service: search by name={}", name);
         return postOfficeWebClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -61,7 +73,16 @@ public class PostOfficeGatewayController {
                         .queryParam("name", name)
                         .build())
                 .retrieve()
-                .bodyToMono(String.class);
+                .toEntity(String.class)
+                .map(response -> ResponseEntity
+                        .status(response.getStatusCode())
+                        .body(response.getBody()))
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.warn("PostOffice service returned {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    return Mono.just(ResponseEntity
+                            .status(ex.getStatusCode())
+                            .body(ex.getResponseBodyAsString()));
+                });
     }
 
     /**

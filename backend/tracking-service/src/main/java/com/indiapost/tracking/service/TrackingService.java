@@ -34,8 +34,18 @@ import java.util.regex.Pattern;
 @Service
 public class TrackingService {
 
-    /** Standard India Post tracking number format: 2 letters + 9 digits + 2 letters */
-    private static final Pattern TRACKING_PATTERN = Pattern.compile("^[A-Z]{2}\\d{9}[A-Z]{2}$");
+    /**
+     * Standard India Post international tracking number format: 2 letters + 9 digits + 2 letters.
+     * Example: EE123456789IN, RR987654321IN
+     */
+    private static final Pattern INTERNATIONAL_TRACKING_PATTERN = Pattern.compile("^[A-Z]{2}\\d{9}[A-Z]{2}$");
+
+    /**
+     * Domestic/general tracking number patterns accepted by India Post.
+     * These include purely numeric IDs, alphanumeric IDs of various lengths.
+     * Minimum 8 characters, maximum 30 characters, letters and digits only.
+     */
+    private static final Pattern GENERAL_TRACKING_PATTERN = Pattern.compile("^[A-Z0-9]{8,30}$");
 
     /** Official India Post tracking URL template */
     private static final String OFFICIAL_TRACKING_URL =
@@ -85,16 +95,24 @@ public class TrackingService {
         String normalized = trackingNumber.toUpperCase().trim();
         log.info("Tracking consignment: {}", normalized);
 
-        // Validate tracking number format
-        if (!TRACKING_PATTERN.matcher(normalized).matches()) {
+        // Validate tracking number format — accept international or general format
+        boolean isInternationalFormat = INTERNATIONAL_TRACKING_PATTERN.matcher(normalized).matches();
+        boolean isValidFormat = isInternationalFormat || GENERAL_TRACKING_PATTERN.matcher(normalized).matches();
+
+        if (!isValidFormat) {
             throw new IllegalArgumentException(
-                    "Invalid tracking number format. Expected: 2 letters + 9 digits + 2 letters (e.g., EE123456789IN)"
+                    "Invalid tracking number format. Please enter a valid India Post tracking number " +
+                    "(e.g., EE123456789IN for Speed Post, or your numeric consignment ID). " +
+                    "Minimum 8 characters, letters and digits only."
             );
         }
 
-        // Identify service type from prefix
-        String prefix = normalized.substring(0, 2);
-        String serviceType = PREFIX_SERVICE_MAP.getOrDefault(prefix, "General Post");
+        // Identify service type from prefix (only for international format)
+        String serviceType = "India Post Consignment";
+        if (isInternationalFormat) {
+            String prefix = normalized.substring(0, 2);
+            serviceType = PREFIX_SERVICE_MAP.getOrDefault(prefix, "India Post Consignment");
+        }
 
         // Generate demo tracking events
         List<TrackingEventDto> events = generateDemoTrackingEvents(normalized, serviceType);

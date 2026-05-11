@@ -67,14 +67,14 @@ export default function Track() {
               placeholder="e.g., EE123456789IN"
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value.toUpperCase())}
-              maxLength={13}
+              maxLength={30}
             />
             <button type="submit" className="btn btn-primary btn-lg" id="track-submit-btn" disabled={loading}>
               {loading ? 'Tracking...' : '📦 Track'}
             </button>
           </form>
           <p className="track-hint">
-            Enter 13-character tracking number: 2 letters + 9 digits + 2 letters (e.g., EE123456789IN, RR987654321IN)
+            Enter your India Post tracking number (e.g., EE123456789IN for Speed Post, or your consignment receipt number)
           </p>
         </div>
 
